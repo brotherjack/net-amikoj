@@ -7,6 +7,12 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+- An argument to allow `packet_sniffer.py` to specify the output directory.
+
+### Fixed
+- A broken link in this changefile.
+
 ## [0.1.0] - 2019-10-12
 ### Added
 - This changelog!
@@ -16,5 +22,5 @@ and this project adheres to
 - A project README.
 
 [Unreleased]: https://github.com/brotherjack/macroy/compare/v0.1.0...HEAD
-[0.0.1]: https://github.com/brotherjack/macroy/releases/tag/v0.1.0
+[0.1.0]: https://github.com/brotherjack/macroy/releases/tag/v0.1.0
 

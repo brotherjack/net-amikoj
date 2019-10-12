@@ -3,6 +3,7 @@ from collections import namedtuple
 import datetime as dt
 from enum import Enum
 import json
+import os
 import re
 import sys
 
@@ -21,13 +22,15 @@ class Response(Enum):
 
 class PacketSniffer():
     def __init__(self, pcap, packets, exclude_metadata=False,
-                 location="somewhere", notes="", metadata_outfile=None):
+                 location="somewhere", notes="", metadata_outfile=None,
+                 output_loc=None):
         self.pcap = pcap
         self.packets = packets
         self.exlcude_metdata = exclude_metadata
         self.location = location
         self.notes = notes
         self.metadata_outfile = metadata_outfile
+        self.output_loc = output_loc
         self.sniff_start = None
         self.sniff_end = None
 
@@ -51,7 +54,11 @@ class PacketSniffer():
 
     def write_data(self, packets):
         try:
-            wrpcap(args.pcap, packets)
+            outfile = self.pcap
+            if self.output_loc:
+                assert os.path.isdir(self.output_loc)
+                outfile = os.path.join(self.output_loc, self.pcap)
+            wrpcap(outfile, packets)
             return Result(
                 Response.OK,
                 f"wrote {self.packets} packets to {self.pcap}"
@@ -93,6 +100,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--location', default="somewhere", action="store")
     parser.add_argument('-m', '--metadata-outfile', action="store")
     parser.add_argument("-n", "--notes", action="store")
+    parser.add_argument("-o", "--output-loc", action="store")
     args = parser.parse_args()
 
     if args.exclude_metadata:
@@ -102,6 +110,22 @@ if __name__ == '__main__':
                 "arguments (ie. \n\t- [-m, --exclude-metadata],\n\t"
                 "- [-l, --location],\n\t- [-n, --notes],\n)"
             )
+
+    if args.output_loc:
+        try:
+            assert os.path.isdir(args.output_loc)
+        except AssertionError:
+            if os.path.isdir(os.path.dirname(args.output_loc)):
+                raise parser.error(
+                    f"{os.path.dirname(args.output_loc)} exists, but "
+                    f"{args.output_loc} does not. Try re-running with "
+                    f" pcap={os.path.basename(args.output_loc)} and "
+                    f"-o {os.path.dirname(args.output_loc)}"
+                )
+            else:
+                raise parser.error(
+                    f"Output location: {args.output_loc} does not exist."
+                )
 
     pktsniffer = PacketSniffer(**vars(args))
     res = pktsniffer.sniff()
