@@ -1,0 +1,6 @@
+# Ignore data
+*.csv
+*.xls*
+*.json
+*.pcap
+
