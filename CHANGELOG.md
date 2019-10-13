@@ -9,9 +9,11 @@ and this project adheres to
 
 ### Added
 - An argument to allow `packet_sniffer.py` to specify the output directory.
+- User can now interrupt packet scans in `packet_sniffer.py`.
 
 ### Fixed
 - A broken link in this changefile.
+- A bug that kept metadata files from being saved.
 
 ## [0.1.0] - 2019-10-12
 ### Added

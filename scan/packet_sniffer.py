@@ -18,6 +18,7 @@ class Response(Enum):
     OK = True
     ERROR = False
     NOREPLY = None
+    INTERRUPT = 1
 
 
 class PacketSniffer():
@@ -33,22 +34,37 @@ class PacketSniffer():
         self.output_loc = output_loc
         self.sniff_start = None
         self.sniff_end = None
+        self.packets_sniffed = 0
+        self.logger = logging.getLogger(__name__)
 
-    def sniff(self): 
+    def sniff(self):
+        self.packets_sniffed = 0
         self.sniff_start = dt.datetime.now()
 
         widgets = ['Received: ', Counter(), ' packets (',
                    Timer(), ')', Percentage(), Bar()]
         pbar = ProgressBar(widgets=widgets, maxval=args.packets).start()
         def update_pbar(_):
+            self.packets_sniffed += 1
             pbar.update(pbar.currval + 1)
 
         try:
             pkts = sniff(count=args.packets, prn=update_pbar)
+            if self.packets_sniffed < self.packets:
+                raise KeyboardInterrupt()
             self.sniff_end = dt.datetime.now()
             pbar.finish()
 
             return Result(Response.OK, data=pkts)
+        except KeyboardInterrupt:
+            self.packets = pbar.currval
+            self.sniff_end = dt.datetime.now()
+            pbar.finish()
+            return Result(
+                response=Response.INTERRUPT,
+                msg="Caught keyboard interrupt",
+                data=pkts
+            )
         except Exception as e:
             return Result(Response.ERROR, f"Error sniffing: {e.args}")
 
@@ -73,6 +89,13 @@ class PacketSniffer():
     def write_metadata(self):
         if self.exlcude_metdata:
             return Result(Response.NOREPLY, "")
+        outfile = self.metadata_outfile 
+
+        if not outfile:
+            outfile = self._create_metadata_outfile()
+        elif os.path.isdir(outfile):
+            outfile = os.path.join(outfile, self._create_metadata_outfile())
+
         output = dict(
             start=self.sniff_start.astimezone().isoformat(),
             end=self.sniff_end.astimezone().isoformat(),
@@ -83,8 +106,7 @@ class PacketSniffer():
         try:
             if self.notes:
                 output["notes"] = self.notes
-            outfile = self.metadata_outfile if self.metadata_outfile \
-                      else self._create_metadata_outfile()
+
             with open(outfile, "w") as f:
                 json.dump(output, f, indent=4)
             return Result(Response.OK, f"wrote metadata to {outfile}")
@@ -93,6 +115,9 @@ class PacketSniffer():
 
 
 if __name__ == '__main__':
+    setup_logging()
+    logger = logging.getLogger(__name__)
+
     parser = argparse.ArgumentParser(prog="packet_sniffer")
     parser.add_argument('pcap', metavar='pcap-output-file')
     parser.add_argument('packets', type=int)
@@ -129,7 +154,12 @@ if __name__ == '__main__':
 
     pktsniffer = PacketSniffer(**vars(args))
     res = pktsniffer.sniff()
+
     if res.response:
+        if res.response == Response.INTERRUPT:
+            logger.debug(f"Interrput message received, response={res}")
+            print(res.msg)
+
         mdres = pktsniffer.write_metadata()
         dres = pktsniffer.write_data(res.data)
 
